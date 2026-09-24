@@ -19,6 +19,6 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install package + dev dependencies
-        run: pip install -e ".[dev]"
+        run: pip install -e ".[dev,bio]"
       - name: Run tests
         run: pytest --cov=slice_lca --cov-report=term-missing
