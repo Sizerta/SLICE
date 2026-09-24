@@ -185,6 +185,4 @@ See [`CITATION.cff`](CITATION.cff).
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE). *(Confirm this is the intended license
-before publishing; MIT is a common permissive default for academic
-software but the choice is yours.)*
+MIT — see [`LICENSE`](LICENSE).
