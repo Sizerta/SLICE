@@ -1,31 +1,39 @@
 # SLICE
 
-**S**calable **L**atent **I**nterpretable **C**omponent **E**xtraction — sparse,
-signed, deflationary factorization for single-cell gene programs.
+**S**calable **L**atent **I**nterpretable **C**omponent **E**xtraction — sparse, signed, deflationary factorization for single-cell gene programs.
 
-SLICE decomposes a (cells × genes) expression matrix into sparse, signed
-gene programs and their per-cell activity scores, without densifying
-sparse input or constructing a gene × gene correlation matrix. See the
-[paper](PLACEHOLDER) for the full method and benchmarks, or
-[the docs](PLACEHOLDER) for tutorials, an API reference, and honest
-comparisons against cNMF, MOFA+, and WGCNA/hdWGCNA.
+[![CI](https://github.com/Sizerta/SLICE/actions/workflows/CI.yml/badge.svg)](https://github.com/Sizerta/SLICE/actions/workflows/CI.yml)
+[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue.svg)](https://sizerta.github.io/SLICE/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/Sizerta/SLICE/blob/main/LICENSE)
 
-## Install
+SLICE decomposes a **cells × genes** expression matrix into sparse, signed gene programs and their per-cell activity scores.
+
+The method is designed for sparse single-cell data and avoids both densifying the input matrix and constructing a gene × gene correlation matrix.
+
+The [documentation](https://sizerta.github.io/SLICE/) has tutorials, an API reference, preprocessing guidance, benchmarks, and comparisons with cNMF, MOFA+, and WGCNA/hdWGCNA.
+
+The paper and full benchmark results are linked from the project documentation.
+
+## Installation
 
 ```bash
 git clone https://github.com/Sizerta/SLICE.git
-cd slice-lca
+cd SLICE
 pip install -e ".[dev]"
 ```
 
 ## Quickstart
 
 ```python
-import scipy.sparse as sp
 from slice_lca import fit_slice
 
 # X: (n_cells, n_genes) sparse, centered/log-normalized expression matrix
-result = fit_slice(X, gene_names=gene_names, sparsity=0.02, min_kME=0.05)
+result = fit_slice(
+    X,
+    gene_names=gene_names,
+    sparsity=0.02,
+    min_kME=0.05,
+)
 
 result.U        # (n_cells, k) cell-level program activities
 result.V        # (n_genes, k) signed, sparse gene loadings
@@ -33,151 +41,253 @@ result.kME      # (n_genes, k) gene-module membership correlations
 result.labels   # (n_genes,) assigned module index, or -1 ("grey")
 ```
 
-For n ≥ 100,000 cells, supply `k` explicitly (automatic rank selection
-via parallel analysis is disabled above that scale for cost reasons):
+For datasets with **n ≥ 100,000 cells**, supply `k` explicitly. Automatic rank selection via parallel analysis is disabled at that scale for computational reasons.
 
 ```python
-result = fit_slice(X, k=20, sparsity=0.02)
+result = fit_slice(
+    X,
+    k=20,
+    sparsity=0.02,
+)
 ```
 
 ## Choosing hyperparameters
 
-See `benchmarks/` for the sensitivity sweeps behind these
-recommendations (10 seeds each, synthetic data with known ground truth):
+See `benchmarks/` for the sensitivity sweeps behind these recommendations. These were run with 10 seeds on synthetic data with known ground truth.
 
-- **`sparsity`**: controls the L1 budget `c = max(sqrt(sparsity * p), 1)`.
-  Recovery is best when `sparsity` is set near the true fraction of
-  genes you expect per program (e.g. ~50 genes out of 2,000 ⇒
-  `sparsity ≈ 0.02–0.05`); values below that under-capture true hub
-  genes, and — because the L1 budget saturates once
-  `sqrt(sparsity·p) ≥ sqrt(p)` — values much above roughly `10×` that
-  point stop adding any real sparsity control at all.
-  See `benchmarks/sensitivity_sparsity_summary.csv`.
-- **`min_kME`**: the module-assignment threshold. Stable across
-  `[0.1, 0.5]` (100% recall, ≥99.8% precision on true module genes in
-  our synthetic benchmark); `0.05` is too lenient and assigns many
-  background genes. See `benchmarks/sensitivity_minkme_summary.csv`.
-- **`k`**: safer to overestimate than underestimate. Extra components
-  beyond the true number cause no measurable harm; underestimating k
-  degrades subspace recovery even when the components that *are*
-  extracted still look individually correct.
-  See `benchmarks/sensitivity_k_summary.csv`.
+### `sparsity`
 
-## Biological annotation & WGCNA-style reporting
+`sparsity` controls the L1 budget
 
-```python
-from slice_lca.annotation import load_reference_db, annotate_modules, export_hub_genes
-from slice_lca.bio_outputs import module_trait_table, hub_gene_table, export_hub_network
-
-db = load_reference_db("CellMarker_2.0.xlsx", species="Human")
-annotation = annotate_modules(result, db)          # BH-corrected cell-type calls, not raw p<threshold
-trait_table = module_trait_table(result.U, clinical_trait)   # BH-corrected module-trait correlations
-hubs = export_hub_genes(result, annotation)
+```text
+c = max(sqrt(sparsity * p), 1)
 ```
 
-Install the extra dependencies these need with `pip install -e ".[bio]"`.
-See `CHANGELOG.md` for the specific bugs this fixed relative to the
-original drafts (most importantly: module cell-type identification
-now corrects for multiple testing across the reference database,
-rather than comparing one best-of-many p-value to a fixed threshold).
+Recovery is best when `sparsity` is close to the fraction of genes expected in a program. For example, if a program contains roughly 50 genes out of 2,000, a reasonable starting range is `0.02–0.05`.
 
-## Real (not proxy) comparison against cNMF
+Values that are too small can under-capture true hub genes. Values much larger than necessary eventually stop providing additional sparsity control because the L1 budget saturates.
 
-`benchmarks/compare_slice_cnmf.py` runs the actual `cnmf` package
-(prepare → factorize → combine → consensus), not a hand-rolled proxy,
-against SLICE on the same data in the same session. Run
-`python compare_slice_cnmf.py` for a self-test on synthetic
-ground-truth data (already verified — see the comment at the top of
-the file for the numbers it should reproduce), then see the bottom of
-the file for how to point it at a real dataset. Install with
-`pip install -e ".[discovery]"`.
+See `benchmarks/sensitivity_sparsity_summary.csv`.
 
-**Honest finding from the self-test**: on data with real gene-set
-overlap but no antagonistic/signed structure, cNMF's gene-loading
-recovery (0.999) beat SLICE's (0.78–0.98, sparsity-dependent) even
-though SLICE was ~30x faster. SLICE's real edge over cNMF isn't
-"better at everything" — it's (a) representing signed/antagonistic
-programs, which cNMF structurally cannot do at all (see the
-antagonistic-axis benchmark), and (b) speed at scale. Don't claim more
-than that without re-running this comparison on your real datasets.
+### `min_kME`
+
+`min_kME` controls module assignment.
+
+In the synthetic benchmark, values from `0.1` to `0.5` were stable, with 100% recall and at least 99.8% precision on true module genes. A value of `0.05` was too permissive and assigned more background genes.
+
+See `benchmarks/sensitivity_minkme_summary.csv`.
+
+### `k`
+
+When choosing the number of components, overestimating `k` is safer than underestimating it in our benchmarks.
+
+Extra components beyond the true number caused little measurable harm, while underestimating `k` reduced subspace recovery.
+
+See `benchmarks/sensitivity_k_summary.csv`.
+
+## Biological annotation and WGCNA-style reporting
+
+SLICE also provides utilities for annotating modules, relating programs to traits, and exporting hub-gene tables.
+
+```python
+from slice_lca.annotation import (
+    load_reference_db,
+    annotate_modules,
+    export_hub_genes,
+)
+from slice_lca.bio_outputs import (
+    module_trait_table,
+    export_hub_network,
+)
+
+db = load_reference_db(
+    "CellMarker_2.0.xlsx",
+    species="Human",
+)
+
+annotation = annotate_modules(
+    result,
+    db,
+)
+
+trait_table = module_trait_table(
+    result.U,
+    clinical_trait,
+)
+
+hubs = export_hub_genes(
+    result,
+    annotation,
+)
+```
+
+These functions use multiple-testing correction for module annotation and module-trait analysis rather than treating a single best-of-many p-value as an ordinary fixed-threshold test.
+
+Install the additional dependencies with:
+
+```bash
+pip install -e ".[bio]"
+```
+
+See `CHANGELOG.md` for details on the statistical and implementation fixes made during development.
+
+## Comparison with cNMF
+
+`benchmarks/compare_slice_cnmf.py` runs the actual `cnmf` package:
+
+```text
+prepare → factorize → combine → consensus
+```
+
+It compares cNMF and SLICE on the same data in the same session rather than using a hand-written approximation of cNMF.
+
+Run the synthetic self-test with:
+
+```bash
+python benchmarks/compare_slice_cnmf.py
+```
+
+Install the additional dependencies with:
+
+```bash
+pip install -e ".[discovery]"
+```
+
+### What the current benchmark shows
+
+On the synthetic benchmark with overlapping gene sets but no signed or antagonistic structure, cNMF achieved higher gene-loading recovery (0.999) than SLICE (0.78–0.98 depending on sparsity), while SLICE was approximately 30× faster.
+
+The intended distinction is not that SLICE is better at every task.
+
+SLICE is designed to represent **signed and antagonistic programs**, which non-negative factorization cannot represent directly, while also targeting sparse computation on large single-cell matrices.
+
+These benchmark numbers should not be generalized to other datasets without rerunning the comparison.
 
 ## Discovery beyond marker recapitulation
 
-`benchmarks/discovery_toolkit.py` — three ways to show SLICE finds
-something beyond what you already knew to look for, in order of how
-much I could verify without your real data:
+`benchmarks/discovery_toolkit.py` contains three ways to test whether a discovered module contains structure beyond a known marker set.
 
-1. `cross_tissue_module_reproducibility()` — does a module recur
-   across independent tissues with a consistent hub-gene signature?
-   Uses only datasets you already have. Fully tested (`pytest`).
-2. `held_out_marker_recovery()` — do curated marker genes land
-   together in an unsupervised module, and what *other* genes come
-   along for free? Uses only datasets you already have. Fully tested.
-3. `go_enrichment_beyond_markers()` — Enrichr pathway enrichment on a
-   module's hub genes with known markers excluded. Correct against
-   `gseapy`'s real API, but **not network-tested** (this sandbox can't
-   reach `maayanlab.cloud`) — test it on one module yourself first.
+### Cross-tissue reproducibility
 
-## Preprocessing and centering (read this before fitting real data)
+```python
+cross_tissue_module_reproducibility()
+```
+
+Tests whether a module recurs across independent tissues with a consistent hub-gene signature.
+
+### Held-out marker recovery
+
+```python
+held_out_marker_recovery()
+```
+
+Tests whether curated marker genes are recovered together in an unsupervised module and identifies additional genes found alongside them.
+
+### GO enrichment beyond known markers
+
+```python
+go_enrichment_beyond_markers()
+```
+
+Runs pathway enrichment on module hub genes after excluding known marker genes.
+
+This uses the real `gseapy` API but has not been network-tested in the development environment, so test it on an example module before relying on it for a larger analysis.
+
+## Preprocessing and centering
+
+Read this section before fitting real data.
 
 ```python
 from slice_lca.preprocessing import preprocess
 from slice_lca.core import fit_slice
 
-X_ready, gene_names_ready = preprocess(X_raw, gene_names)   # QC -> normalize+log1p -> HVG -> scale
-result = fit_slice(X_ready, gene_names_ready, k=15, sparsity=0.02)  # centers implicitly by default
+X_ready, gene_names_ready = preprocess(
+    X_raw,
+    gene_names,
+)  # QC -> normalize + log1p -> HVG -> scale
+
+result = fit_slice(
+    X_ready,
+    gene_names_ready,
+    k=15,
+    sparsity=0.02,
+)
 ```
 
-`fit_slice` centers implicitly by default (`center=True`) and raises
-`NotPreprocessedError` if the input looks like raw counts. Both exist
-because of a real, serious finding -- see CHANGELOG.md's "Implicit
-centering" entry: the paper's own original pipeline never explicitly
-centered the data, and `sparse_svd` had no implicit-centering
-mechanism either, despite the Methods section describing one. This
-matters most for continuous, signed/antagonistic axes (SLICE's actual
-differentiating claim over NMF) -- if you have existing results
-generated before this fix, rerun them.
+`fit_slice` centers the input implicitly by default (`center=True`) and raises `NotPreprocessedError` when the input appears to contain raw counts.
 
-If you have marker genes or pathway members you already know matter,
-protect them from HVG filtering explicitly -- variance-based selection
-can and does drop real, low-expression signal (see CHANGELOG.md's
-`force_include` entry for the real case, involving two Tuft cell
-markers, that motivated adding this):
+These checks were added after a problem was found in the original implementation: the paper described implicit centering, but the original pipeline did not actually implement it.
+
+This matters particularly for continuous signed or antagonistic axes, which are one of the main reasons to use SLICE instead of a non-negative factorization.
+
+Existing results generated before this fix should be rerun.
+
+### Protecting known genes during HVG selection
+
+Variance-based feature selection can remove real biological signal, particularly for low-expression markers. Genes that you already know are important can be explicitly retained:
 
 ```python
 X_ready, gene_names_ready = preprocess(
-    X_raw, gene_names, n_top_hvg=3000,
+    X_raw,
+    gene_names,
+    n_top_hvg=3000,
     force_include=["Dclk1", "Trpm5"],
 )
 ```
 
-## Robustness options for the core factorization
+See `CHANGELOG.md` for the case that motivated `force_include`.
 
-All default to exactly the old behavior (see
-`tests/test_multistart.py` for the regression tests pinning this
-down):
+## Robustness options
+
+The following options preserve the old default behavior unless explicitly enabled.
+
+### Multiple restarts
+
+Multiple initializations can reduce the chance of ending up in a poor local optimum:
 
 ```python
-# Reduce bad-local-optimum risk (validated to help, modestly, with a
-# real held-out-seed check -- see CHANGELOG.md):
-result = fit_slice(X, k=15, sparsity=0.02, n_restarts=4)
+result = fit_slice(
+    X,
+    k=15,
+    sparsity=0.02,
+    n_restarts=4,
+)
+```
 
-# See whether a fit actually converged, instead of it failing silently:
-U, D, V, diagnostics = sparse_svd(X, k=15, sparsity=0.02, return_diagnostics=True)
+### Convergence diagnostics
+
+You can inspect whether individual components converged:
+
+```python
+U, D, V, diagnostics = sparse_svd(
+    X,
+    k=15,
+    sparsity=0.02,
+    return_diagnostics=True,
+)
+
 print([d["converged"] for d in diagnostics])
 ```
 
+See `tests/test_multistart.py` and `CHANGELOG.md` for the corresponding regression tests and validation.
+
 ## Development
+
+Install the development dependencies:
 
 ```bash
 pip install -e ".[dev,bio]"
-pytest                 # unit + regression tests
 ```
 
-The regression tests in `tests/test_recovery.py` pin down the paper's
-published benchmark numbers; if you change the algorithm, re-run the
-scripts in `benchmarks/` and update both the paper and these
-assertions together.
+Run the test suite:
+
+```bash
+pytest
+```
+
+The regression tests in `tests/test_recovery.py` pin down the published benchmark numbers. If the algorithm changes, rerun the relevant scripts in `benchmarks/` and update the paper and tests together.
+
+For tutorials, API documentation, and the benchmark walkthroughs, see the [SLICE documentation](https://sizerta.github.io/SLICE/).
 
 ## Citation
 
@@ -185,4 +295,4 @@ See [`CITATION.cff`](CITATION.cff).
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE).
+MIT. See [`LICENSE`](LICENSE).
