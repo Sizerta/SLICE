@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "slice-lca"
+version = "0.1.0"
+description = "SLICE: sparse, signed, deflationary latent factorization for single-cell gene programs"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+    { name = "Masoud Mahdavifar", email = "masoud.m5121@gmail.com" },
+    { name = "Tara Iranpourtari", email = "Tarairjda@gmail.com" },
+    { name = "Zahra Mohammadifar", email = "zahramohfar@gmail.com" },
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+dependencies = [
+    "numpy>=1.23",
+    "scipy>=1.9",
+    "scikit-learn>=1.1",
+    "requests>=2.28",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "pytest-cov", "ruff"]
+bio = ["pandas>=1.5", "matplotlib>=3.5", "seaborn>=0.12", "openpyxl>=3.0", "h5py>=3.0"]
+discovery = ["scanpy>=1.9", "cnmf>=1.7", "gseapy>=1.0"]
+docs = ["mkdocs>=1.6", "mkdocs-material>=9.5", "mkdocstrings[python]>=0.26"]
+
+[project.urls]
+Homepage = "PLACEHOLDER"
+Repository = "PLACEHOLDER"
+Documentation = "PLACEHOLDER"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

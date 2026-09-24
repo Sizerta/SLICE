@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use SLICE, please cite the paper below."
+title: "SLICE: Sparse Signed Latent Factorization for Interpretable Single-Cell Gene Programs"
+authors:
+  - family-names: Mahdavifar
+    given-names: Masoud
+    email: masoud.m5121@gmail.com
+  - family-names: Iranpourtari
+    given-names: Tara
+    email: Tarairjda@gmail.com
+  - family-names: Mohammadifar
+    given-names: Zahra
+    email: zahramohfar@gmail.com
+date-released: "PLACEHOLDER"
+version: "0.1.0"
+repository-code: "PLACEHOLDER"
+license: MIT
