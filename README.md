@@ -13,9 +13,7 @@ comparisons against cNMF, MOFA+, and WGCNA/hdWGCNA.
 ## Install
 
 ```bash
-pip install slice-lca          # once published to PyPI
-# or, for development:
-git clone PLACEHOLDER
+git clone https://github.com/Sizerta/SLICE.git
 cd slice-lca
 pip install -e ".[dev]"
 ```
