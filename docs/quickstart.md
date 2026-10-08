@@ -9,7 +9,7 @@ pip install slice-lca          # once published to PyPI
 For development, or before that PyPI release exists:
 
 ```bash
-git clone PLACEHOLDER
+git clone https://github.com/Sizerta/SLICE
 cd slice-lca
 pip install -e ".[dev,bio]"
 ```
